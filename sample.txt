@@ -1,0 +1,182 @@
+Experiment 1 – Install & Configure Jenkins (Java 17 + Cloud or Local)
+# 1️⃣ Update and install Java 17
+sudo apt update
+sudo apt install openjdk-17-jdk -y
+java -version
+
+# 2️⃣ Add Jenkins repo and key
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | \
+  sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+  https://pkg.jenkins.io/debian-stable binary/ | \
+  sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+
+# 3️⃣ Install Jenkins
+sudo apt update
+sudo apt install jenkins -y
+
+# 4️⃣ Start and enable service
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+sudo systemctl status jenkins
+
+# 5️⃣ Get unlock password
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+
+Experiment 2 – Create CI Pipeline using Jenkins
+# (Inside Jenkins UI)
+# New Item → Pipeline → Pipeline Script → Paste below:
+
+pipeline {
+  agent any
+  stages {
+    stage('Build') { steps { echo 'Building the app' } }
+    stage('Test') { steps { echo 'Running tests' } }
+    stage('Deploy') { steps { echo 'Deploying the application' } }
+  }
+  post {
+    success { echo '✅ Build completed successfully!' }
+    failure { echo '❌ Build failed!' }
+  }
+}
+
+
+(No Linux terminal commands — only Jenkins UI code.)
+
+Experiment 3 – Create CD Pipeline & Deploy in Cloud
+# In Jenkins → New Pipeline → Pipeline Script → Paste:
+
+pipeline {
+  agent any
+  stages {
+    stage('Build')  { steps { echo 'Building...' } }
+    stage('Test')   { steps { echo 'Testing...' } }
+    stage('Deploy') {
+      steps {
+        echo 'Deploying to server...'
+        sh 'scp target/*.jar ubuntu@<server-ip>:/var/www/app.jar'
+      }
+    }
+  }
+  post {
+    success { echo '✅ Deployment successful!' }
+    failure { echo '❌ Deployment failed!' }
+  }
+}
+
+Experiment 4 – Build Simple Application using Gradle (Local)
+# 1️⃣ Install Java 17 and Gradle
+sudo apt update
+sudo apt install openjdk-17-jdk wget unzip -y
+wget https://services.gradle.org/distributions/gradle-8.7-bin.zip
+sudo mkdir /opt/gradle && sudo unzip -d /opt/gradle gradle-8.7-bin.zip
+echo 'export PATH=$PATH:/opt/gradle/gradle-8.7/bin' | sudo tee /etc/profile.d/gradle.sh
+source /etc/profile.d/gradle.sh
+gradle -v
+
+# 2️⃣ Create simple Gradle project
+mkdir gradle-demo && cd gradle-demo
+gradle init --type java-application
+
+# 3️⃣ Edit App.java
+cat > src/main/java/App.java <<'EOF'
+public class App {
+    public static void main(String[] args) {
+        System.out.println("Gradle Build Successful — Hello Batman!");
+    }
+}
+
+# 4️⃣ Build & run
+gradle clean build
+gradle run
+
+Experiment 7 – Create Ansible Playbook for Web Server (WSL or Linux)
+# 1️⃣ Install Ansible
+sudo apt update
+sudo apt install ansible -y
+ansible --version
+
+# 2️⃣ Create project folder & inventory
+mkdir ~/ansible-lab && cd ~/ansible-lab
+echo "[webservers]
+localhost ansible_connection=local" > hosts
+
+# 3️⃣ Create playbook
+cat > webserver.yml <<'EOF'
+---
+- name: Setup Simple Web Server
+  hosts: webservers
+  become: true
+  tasks:
+    - name: Update APT packages
+      apt:
+        update_cache: yes
+    - name: Install Apache Web Server
+      apt:
+        name: apache2
+        state: present
+    - name: Start and Enable Apache Service
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+    - name: Deploy HTML Page
+      copy:
+        dest: /var/www/html/index.html
+        content: "<h1>Hello Batman 🦇 — Deployed via Ansible in WSL!</h1>"
+
+# 4️⃣ Run playbook
+sudo ansible-playbook -i hosts webserver.yml
+
+# 5️⃣ Test
+curl http://localhost
+
+Experiment 8 – Configure Roles & Write Playbooks (Ansible Roles)
+# 1️⃣ Install Ansible (if not already)
+sudo apt update
+sudo apt install ansible -y
+
+# 2️⃣ Create role project
+mkdir ansible-role-demo && cd ansible-role-demo
+ansible-galaxy init webserver
+
+# 3️⃣ Add tasks in role
+cat > webserver/tasks/main.yml <<'EOF'
+- name: Install Apache
+  apt:
+    name: apache2
+    state: present
+
+- name: Start Apache
+  service:
+    name: apache2
+    state: started
+
+# 4️⃣ Add HTML template
+mkdir -p webserver/templates
+echo "<h1>Hello Batman — Deployed via Ansible Role!</h1>" > webserver/templates/index.html.j2
+
+# 5️⃣ Create main playbook in project root
+cat > site.yml <<'EOF'
+- name: Deploy using Role
+  hosts: localhost
+  become: true
+  roles:
+    - webserver
+
+# 6️⃣ Create inventory
+echo "[local]
+localhost ansible_connection=local" > hosts
+
+# 7️⃣ Run playbook
+sudo ansible-playbook -i hosts site.yml
+
+Quick Summary
+Experiment	Main Tool	Core Install Command
+1	Jenkins	sudo apt install jenkins -y
+2	Jenkins Pipeline	(Use Jenkins UI)
+3	Jenkins CD	(Use Jenkins UI)
+4	Gradle	sudo apt install openjdk-17-jdk wget unzip -y + manual Gradle install
+7	Ansible	sudo apt install ansible -y
+8	Ansible Roles	ansible-galaxy init webserver
